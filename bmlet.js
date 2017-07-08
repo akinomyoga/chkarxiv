@@ -1,0 +1,5 @@
+
+// (1)
+// CL arXiv
+
+javascript: var esc=function(txt){return txt.replace(/[<>&"]|\s*\n\s*/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]||' ';});}; var tk=document.location.href.replace(/^.+(\b\d+\.\d+\b).*$/,"$1"); var tt=document.getElementsByClassName("title")[0].textContent.replace(/^\s*Title:\s*/,""); var ta=document.getElementsByClassName("authors")[0].textContent.replace(/^\s*Authors:\s*/,""); var td=document.getElementsByClassName("abstract")[0].textContent.replace(/^\s*Abstract:\s*/,""); var ht='<h2><a href="http://arxiv.org/pdf/'+tk+'.pdf"><img src="/agh/icons/file-pdf.png" alt="pdf" /></a> <a href="http://arxiv.org/abs/'+tk+'">arXiv:'+tk+'</a>: '+esc(tt)+'</h2>\n'; var ha='<p class="auth">'+esc(ta)+'</p>\n'; var hd='<p>'+esc(td)+'</p>\n'; var h=ht+ha+hd+"\n"; var textArea=document.createElement("textarea"); textArea.textContent=h; textArea.style.width='80%'; textArea.style.height='20em'; textArea.style.margin='1em'; textArea.selectionStart=0; textArea.selectionEnd=h.length; document.body.appendChild(textArea); void(0);

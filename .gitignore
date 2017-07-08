@@ -1,0 +1,16 @@
+
+/.chkarxiv
+
+# generated files
+20????/
+/20*.htm
+/arxiv20*.htm
+/arxivjc20*.htm
+/r20????.htm
+/s20????.htm
+/jc20????.htm
+/fjc20????.htm
+/minihic20130418.htm
+
+# user files
+/src
