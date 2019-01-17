@@ -210,19 +210,19 @@ function create_list_html {
 #------------------------------------------------------------------------------
 # arxiv id list
 
-declare -a aid_list_dates
+aid_list_dates=()
 function aid_list.add {
-  local date="$1"
-  local arxiv="$2"
-  local fdate1="$dstamp/${arxiv%%.*}/$arxiv"
-  test -s "$fdate1" && return
+  local date=$1
+  local arxiv=$2
+  local fdate1=$dstamp/${arxiv%%.*}/$arxiv
+  [[ -s $fdate1 ]] && return
   mkd "${fdate1%/*}"
   echo -n "$date" > "$fdate1"
 
-  local fdate="$dstamp/$date.txt"
-  if test ! -f "$fdate.part"; then
+  local fdate=$dstamp/$date.txt
+  if [[ ! -f $fdate.part ]]; then
     aid_list_dates+=("$date")
-    if test -f "$fdate"; then
+    if [[ -f $fdate ]]; then
       cp "$fdate" "$fdate.part"
     else
       touch "$fdate.part"
@@ -231,38 +231,59 @@ function aid_list.add {
 
   echo "$arxiv" >> "$fdate.part"
 }
+## 関数 aid_list.canonicalize date
+##   @param[in] date
+##
+##   その月の記事一覧ファイルに .part ファイルがあれば、
+##   そのファイルをソートして記事一覧ファイルを置き換えます。
+##
 function aid_list.canonicalize {
-  local date="$1"
-  local fdate="$dstamp/$date.txt"
-  if test -f "$fdate.part"; then
+  local date=$1
+  local fdate=$dstamp/$date.txt
+  if [[ -f $fdate.part ]]; then
     sort -u "$fdate.part" > "$fdate"
     rm -f "$fdate.part"
   fi
 }
+## 関数 aid_list.generate_html [date]
+##   @param[in,opt] date
+##     HTMLを生成する対象の日付を指定します。
+##     もしくは記事番号一覧ファイルを指定します。
+##     省略した場合は aid_list_dates を使用します。
 function aid_list.generate_html {
-  if test $# -gt 0; then
-    local date="$1"
-    local fdate="$dstamp/$date.txt"
+  if (($#)); then
+    local date=$1
+    local fdate=$dstamp/$date.txt
+    if [[ ! -f $fdate && -s $date ]]; then
+      # ファイル名を直接指定した時
+      fdate=$date
+      date=${date##*/}
+      date=${date%%.*}
+    fi
     aid_list.canonicalize "$date"
     create_list_html "$date" "$fdate"
   else
+    local date
     for date in "${aid_list_dates[@]}"; do
       aid_list.generate_html "$date"
     done
   fi
 }
 
+## 関数 arxiv_list.regenerateListFromStamp date
+##   @param[in] date
+##     "201810" 等の月を指定する文字列を渡します。
 function arxiv_list.regenerateListFromStamp {
-  local date="$1"
-  local month1="${date::6}"
-  local month2="$((month1%100==12?(month1%100+101):(month1+1)))"
+  local date=$1
+  local month1=${date::6}
+  local month2=$((month1%100==12?(month1%100+101):(month1+1)))
 
-  local fdate="$dstamp/$date.txt"
+  local fdate=$dstamp/$date.txt
   cp "$fdate" "$fdate.part"
 
   local fdate1
   for fdate1 in "$dstamp/${month1:2}"/* "$dstamp/${month2:2}"/*; do
-    if [[ $(< "$fdate1") == "$date" ]]; then
+    if [[ $(< "$fdate1") == $date ]]; then
       echo "${fdate1##*/}" >> "$fdate.part"
     fi
   done
@@ -326,8 +347,8 @@ function arxiv_check_recent {
     local line
     while read line; do
       local field=($line)
-      local date="$(parse_date "${field[0]}")"
-      local arxiv="${field[1]}"
+      local date=$(parse_date "${field[0]}")
+      local arxiv=${field[1]}
       # echo dbg: aid_list.add "$date" "$arxiv"
       aid_list.add "$date" "$arxiv"
     done
@@ -400,9 +421,21 @@ function cmd:list {
 }
 
 # その月を全て生成する場合
-# cat .chkarxiv/stamp/201706??.txt > .chkarxiv/201706.txt
-# create_list_html -o fjc201706.htm 201706 .chkarxiv/201706.txt
+#cat .chkarxiv/stamp/201706??.txt > .chkarxiv/201706.txt
+#create_list_html -o fjc201706.htm 201706 .chkarxiv/201706.txt
 #create_list_html -o fjc201705.htm 201705 .chkarxiv/201705.txt
+
+# 2019-01-17
+#   arXiv の形式が変わっていて 201810 から正常に HTML を生成できていなかったので、
+#   .chkarxiv/html/20{1810,1811,1812,1901} を削除した上で、
+#   改めてHTMLを再生成する
+function cmd:20190117-regenerate {
+  local file
+  for file in .chkarxiv/stamp/20{18{10..12},19??}??.txt; do
+    echo aid_list.generate_html "$file"
+    aid_list.generate_html "$file"
+  done
+}
 
 if declare -f cmd:"$1" &>/dev/null; then
   cmd:"$@"
