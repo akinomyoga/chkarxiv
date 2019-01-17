@@ -17,7 +17,7 @@ mkd "$dhtmlc"
 
 #-------------------------------------------------------------------------------
 
-## @fn cmd:update-arxiv arxivNumber...
+## 関数 cmd:update-arxiv arxivNumber...
 ##   @var[in] dcache
 ##   @var[in] HTTP_UA
 function cmd:update-arxiv {
@@ -30,104 +30,126 @@ function cmd:update-arxiv {
       list=(${list[@]%.htm})
       cmd:update-arxiv "${list[@]}"
     else
-      cmd:update-arxiv/core "$arxiv"
+      cmd:update-arxiv/.check-arxiv-number "$arxiv" &&
+        cmd:update-arxiv/.download-abs-page "$arxiv" &&
+        cmd:update-arxiv/.extract-title-and-abstract "$arxiv"
     fi
   done
 }
 
-function cmd:update-arxiv/core {
-  local arxiv="$1"
+## 関数 cmd:update-arxiv/.check-arxiv-number
+##   @param[in] arxiv
+##   arxiv が 1810.00001 の形式を持っているかどうかを確認します。
+function cmd:update-arxiv/.check-arxiv-number {
+  local arxiv=$1
   if [[ $arxiv != ?*.?* ]]; then
     echo "(arxiv=$arxiv): invalid format!" >&2
     return 1
   fi
+  return 0
+}
 
-  local fhtm="$dcache/${arxiv%%.*}/$arxiv.htm"
-  [[ -d ${fhtm%/*} ]] || mkdir -p "${fhtm%/*}"
-  if test ! -s "$fhtm"; then
-    wget --no-verbose --user-agent="$HTTP_UA" --referer="http://arxiv.org/list/nucl-th/recent" "http://arxiv.org/abs/$arxiv" -O "$fhtm"
-    sleep 5
-  fi
+## 関数 cmd:update-arxiv/.extract-title-and-abstract arxiv
+##   @param[in] arxiv
+##     1810.00001 の形式の番号を指定します。
+##   .chkarxiv/cache/1810/1810.13394.htm にファイルを保存します。
+function cmd:update-arxiv/.download-abs-page {
+  local arxiv=$1
+  local fhtm=$dcache/${arxiv%%.*}/$arxiv.htm
+  mkd "${fhtm%/*}"
+  [[ ! -s $fhtm ]] && return 0
+  wget --no-verbose --user-agent="$HTTP_UA" --referer="http://arxiv.org/list/nucl-th/recent" "http://arxiv.org/abs/$arxiv" -O "$fhtm"; local ret=$?
+  sleep 5
+  return "$?"
+}
 
+## 関数 cmd:update-arxiv/.extract-title-and-abstract arxiv
+##   @param[in] arxiv
+##     1810.00001 の形式の番号を指定します。
+##   .chkarxiv/cache/1810/1810.13394.htm からタイトルと概要を抽出して
+##   .chkarxiv/html/1810/1810.13394.{ind,sum}.htm に保存します。
+function cmd:update-arxiv/.extract-title-and-abstract {
+  local arxiv=$1
   mkd "$dhtmlc/${arxiv%%.*}"
+  local fhtm=$dcache/${arxiv%%.*}/$arxiv.htm
   local fhtm_ind=$dhtmlc/${arxiv%%.*}/${arxiv#*.}.ind.htm
   local fhtm_sum=$dhtmlc/${arxiv%%.*}/${arxiv#*.}.sum.htm
-  if [[ ! -s $fhtm_ind || ! -s $fhtm_sum ]]; then
-    awk '
-      BEGIN {
-        arXivId = "'$arxiv'";
-        title_head1 = "<a href=\"http://arxiv.org/pdf/" arXivId ".pdf\"><img src=\"/agh/icons/file-pdf.png\" alt=\"pdf\" /></a>";
-        title_head2 = "<a href=\"http://arxiv.org/abs/" arXivId "\">arXiv:" arXivId "</a>";
-        title_head = title_head1 " " title_head2 ": ";
+  [[ -s $fhtm_ind && -s $fhtm_sum ]] && return 0
+
+  awk '
+    BEGIN {
+      arXivId = "'$arxiv'";
+      title_head1 = "<a href=\"http://arxiv.org/pdf/" arXivId ".pdf\"><img src=\"/agh/icons/file-pdf.png\" alt=\"pdf\" /></a>";
+      title_head2 = "<a href=\"http://arxiv.org/abs/" arXivId "\">arXiv:" arXivId "</a>";
+      title_head = title_head1 " " title_head2 ": ";
+    }
+
+    function print_content() {
+      gsub(/href="\//, "href=\"http://arxiv.org/");
+
+      # title
+      gsub(/^[[:space:]]*<h1 class="title( mathjax)?"><span class="descriptor">Title:<\/span>/, "<h2 class=\"title\" id=\"arxiv." arXivId "\">" title_head);
+      gsub(/<\/h1>/, "</h2>");
+
+      # author list
+      gsub(/id="long-author-list"/, "class=\"long-author-list\"");
+
+      # abstract
+      gsub(/\yblockquote\y/, "p");
+      print;
+    }
+
+    function title_initialize(line) {
+      swch_title = 1;
+      title = "";
+      sub(/^.*Title:<\/span>/, "", line);
+      title_check_and_append(line);
+    }
+    function title_check_and_append(line) {
+      if (!swch_title) return;
+      if (line ~ /<\/h1>/) {
+        sub(/<\/h1>.*$/, "", line);
+        swch_title = 0;
       }
+      title = title line;
+    }
 
-      function print_content() {
-        gsub(/href="\//, "href=\"http://arxiv.org/");
+    /href="javascript:toggleAuthorList/ { next; }
+    /^[[:space:]]*<h1 class="title( mathjax)?">/ {
+      swch = 1;
 
-        # title
-        gsub(/^[[:space:]]*<h1 class="title( mathjax)?"><span class="descriptor">Title:<\/span>/, "<h2 class=\"title\" id=\"arxiv." arXivId "\">" title_head);
-        gsub(/<\/h1>/, "</h2>");
+      title_initialize($0);
+      print_content();
+      next;
+    }
+    /^[[:space:]]*<\/blockquote>/ {
+      swch=0; print_content(); next;
+    }
+    swch == 1 {
+      title_check_and_append($0);
+      print_content(); next;
+    }
 
-        # author list
-        gsub(/id="long-author-list"/, "class=\"long-author-list\"");
+    /^[[:space:]]*<td class="tablecell subjects">/ {
+      gsub(/^[[:space:]]*<td class="tablecell subjects">/, "<p class=\"subjects\">");
+      gsub(/<\/td>/, "</p>");
 
-        # abstract
-        gsub(/\yblockquote\y/, "p");
-        print;
-      }
+      gsub(/Nuclear Theory \(nucl-th\)/, "<span class=\"subject-nucl-th\">nucl-th</span>");
+      gsub(/Nuclear Experiment \(nucl-ex\)/, "<span class=\"subject-nucl-ex\">nucl-ex</span>");
+      gsub(/High Energy Physics - Experiment \(hep-ex\)/, "<span class=\"subject-hep-ex\">hep-ex</span>");
+      gsub(/High Energy Physics - Phenomenology \(hep-ph\)/, "<span class=\"subject-hep-ph\">hep-ph</span>");
+      print;
+    }
 
-      function title_initialize(line) {
-        swch_title = 1;
-        title = "";
-        sub(/^.*Title:<\/span>/, "", line);
-        title_check_and_append(line);
-      }
-      function title_check_and_append(line) {
-        if (!swch_title) return;
-        if (line ~ /<\/h1>/) {
-          sub(/<\/h1>.*$/, "", line);
-          swch_title = 0;
-        }
-        title = title line;
-      }
-
-      /href="javascript:toggleAuthorList/ { next; }
-      /^[[:space:]]*<h1 class="title( mathjax)?">/ {
-        swch = 1;
-
-        title_initialize($0);
-        print_content();
-        next;
-      }
-      /^[[:space:]]*<\/blockquote>/ {
-        swch=0; print_content(); next;
-      }
-      swch == 1 {
-        title_check_and_append($0);
-        print_content(); next;
-      }
-
-      /^[[:space:]]*<td class="tablecell subjects">/ {
-        gsub(/^[[:space:]]*<td class="tablecell subjects">/, "<p class=\"subjects\">");
-        gsub(/<\/td>/, "</p>");
-
-        gsub(/Nuclear Theory \(nucl-th\)/, "<span class=\"subject-nucl-th\">nucl-th</span>");
-        gsub(/Nuclear Experiment \(nucl-ex\)/, "<span class=\"subject-nucl-ex\">nucl-ex</span>");
-        gsub(/High Energy Physics - Experiment \(hep-ex\)/, "<span class=\"subject-hep-ex\">hep-ex</span>");
-        gsub(/High Energy Physics - Phenomenology \(hep-ph\)/, "<span class=\"subject-hep-ph\">hep-ph</span>");
-        print;
-      }
-
-      END {
-        print "<li>" title_head "<a class=\"internal article-index-title\" href=\"#arxiv." arXivId "\">" title "</a></li>" > "'"$fhtm_ind"'"
-      }
-    ' "$fhtm" > "$fhtm_sum"
-  fi
+    END {
+      print "<li>" title_head "<a class=\"internal article-index-title\" href=\"#arxiv." arXivId "\">" title "</a></li>" > "'"$fhtm_ind"'"
+    }
+  ' "$fhtm" > "$fhtm_sum"
 }
 
 #-------------------------------------------------------------------------------
 
-## @fn cmd:update-arxiv arxivNumber...
+## @fn cmd:get-content-html arxivNumber...
 ##   @var[in] dcache
 ##   @var[in] HTTP_UA
 function cmd:get-content-html {
@@ -146,14 +168,14 @@ function cmd:get-content-html {
 }
 
 function cmd:get-content-html/core {
-  local arxiv="$1"
+  local arxiv=$1
   if [[ $arxiv != ?*.?* ]]; then
     echo "(arxiv=$arxiv): invalid format!" >&2
     return 1
   fi
 
   local fhtm_sum=$dhtmlc/${arxiv%%.*}/${arxiv#*.}.sum.htm
-  [[ -s $fhtm_sum ]] || cmd:update-arxiv/core "$arxiv"
+  [[ -s $fhtm_sum ]] || cmd:update-arxiv "$arxiv"
   cat "$fhtm_sum"
 }
 
@@ -162,20 +184,20 @@ function cmd:get-content-html/core {
 function create_list_html {
   local outputFile=
   while [[ $1 == -* ]]; do
-    local arg="$1"
+    local arg=$1
     shift
-    case "$arg" in
-    (-o)  outputFile="$1"; shift ;;
-    (-o*) outputFile="${arg:2}"  ;;
+    case $arg in
+    (-o)  outputFile=$1; shift ;;
+    (-o*) outputFile=${arg:2}  ;;
     (*)
       echo "create_list_html: unexpected option '$arg'!" >&2
       return 1 ;;
     esac
   done
 
-  local date="$1"
-  local flst="$2" 
-  http_referer="http://arxiv.org/list/$cat/recent"
+  local date=$1
+  local flst=$2 
+  http_referer=http://arxiv.org/list/$cat/recent
 
   local -a sum_list
   local -a ind_list
@@ -203,7 +225,7 @@ function create_list_html {
 
   : ${outputFile:=arxiv$date.htm}
 
-  export CHK_ARXIV_DATE="$date"
+  export CHK_ARXIV_DATE=$date
   mwg_pp.awk chkarxiv.pp.htm > "$outputFile"
 }
 
@@ -297,9 +319,9 @@ function arxiv_list.regenerateListFromStamp {
 function arxiv_check_recent {
   local categories='nucl-th nucl-ex hep-ph hep-ex'
   for cat in $categories; do
-    local http_ua="$HTTP_UA"
-    local http_referer="http://arxiv.org/list/$cat/recent"
-    local wget_output=".chkarxiv/$cat.tmp"
+    local http_ua=$HTTP_UA
+    local http_referer=http://arxiv.org/list/$cat/recent
+    local wget_output=.chkarxiv/$cat.tmp
     #if test ! -s "$wget_output"; then
     if true; then
       wget --no-verbose --user-agent="$http_ua" --referer="$http_referer" "http://arxiv.org/list/$cat/pastweek?show=1000" -O "$wget_output"
@@ -323,23 +345,23 @@ function arxiv_check_recent {
     function parse_date {
       IFS=- eval 'local date=($1)'
 
-      case "${date[1]}" in
-      Jan) date[1]=01 ;;
-      Feb) date[1]=02 ;;
-      Mar) date[1]=03 ;;
-      Apr) date[1]=04 ;;
-      May) date[1]=05 ;;
-      Jun) date[1]=06 ;;
-      Jul) date[1]=07 ;;
-      Aug) date[1]=08 ;;
-      Sep) date[1]=09 ;;
-      Oct) date[1]=10 ;;
-      Nov) date[1]=11 ;;
-      Dec) date[1]=12 ;;
+      case ${date[1]} in
+      (Jan) date[1]=01 ;;
+      (Feb) date[1]=02 ;;
+      (Mar) date[1]=03 ;;
+      (Apr) date[1]=04 ;;
+      (May) date[1]=05 ;;
+      (Jun) date[1]=06 ;;
+      (Jul) date[1]=07 ;;
+      (Aug) date[1]=08 ;;
+      (Sep) date[1]=09 ;;
+      (Oct) date[1]=10 ;;
+      (Nov) date[1]=11 ;;
+      (Dec) date[1]=12 ;;
       esac
 
-      if test ${#date[0]} -eq 1; then
-        date[0]="0${date[0]}"
+      if ((${#date[0]}==1)); then
+        date[0]=0${date[0]}
       fi
 
       echo -n "${date[2]}${date[1]}${date[0]}"
