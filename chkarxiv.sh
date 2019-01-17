@@ -77,7 +77,7 @@ function cmd:update-arxiv/core {
       }
 
       /href="javascript:toggleAuthorList/ { next; }
-      /^<h1 class="title( mathjax)?">/ {
+      /^[[:space:]]*<h1 class="title( mathjax)?">/ {
         swch = 1;
 
         # read title1
@@ -89,7 +89,7 @@ function cmd:update-arxiv/core {
         print_content();
         next;
       }
-      /^<\/blockquote>/ {
+      /^[[:space:]]*<\/blockquote>/ {
         swch=0; print_content(); next;
       }
       swch == 1 {
