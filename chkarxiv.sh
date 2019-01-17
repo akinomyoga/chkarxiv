@@ -65,7 +65,7 @@ function cmd:update-arxiv/core {
         gsub(/href="\//, "href=\"http://arxiv.org/");
 
         # title
-        gsub(/^<h1 class="title( mathjax)?"><span class="descriptor">Title:<\/span>/, "<h2 class=\"title\" id=\"arxiv." arXivId "\">" title_head);
+        gsub(/^[[:space:]]*<h1 class="title( mathjax)?"><span class="descriptor">Title:<\/span>/, "<h2 class=\"title\" id=\"arxiv." arXivId "\">" title_head);
         gsub(/<\/h1>/, "</h2>");
 
         # author list
@@ -76,16 +76,26 @@ function cmd:update-arxiv/core {
         print;
       }
 
+      function title_initialize(line) {
+        swch_title = 1;
+        title = "";
+        sub(/^.*Title:<\/span>/, "", line);
+        title_check_and_append(line);
+      }
+      function title_check_and_append(line) {
+        if (!swch_title) return;
+        if (line ~ /<\/h1>/) {
+          sub(/<\/h1>.*$/, "", line);
+          swch_title = 0;
+        }
+        title = title line;
+      }
+
       /href="javascript:toggleAuthorList/ { next; }
       /^[[:space:]]*<h1 class="title( mathjax)?">/ {
         swch = 1;
 
-        # read title1
-        swch_title = 1;
-        _text = $0;
-        sub(/^.*Title:<\/span>/, "", _text);
-        title = _text;
-
+        title_initialize($0);
         print_content();
         next;
       }
@@ -93,21 +103,12 @@ function cmd:update-arxiv/core {
         swch=0; print_content(); next;
       }
       swch == 1 {
-        # read title
-        if (swch_title) {
-          _text = $0;
-          if (_text~/<\/h1>/) {
-            sub(/<\/h1>.*$/, "", _text);
-            swch_title = 0;
-          }
-          title = title _text;
-        }
-
+        title_check_and_append($0);
         print_content(); next;
       }
 
-      /^<td class="tablecell subjects">/ {
-        gsub(/^<td class="tablecell subjects">/, "<p class=\"subjects\">");
+      /^[[:space:]]*<td class="tablecell subjects">/ {
+        gsub(/^[[:space:]]*<td class="tablecell subjects">/, "<p class=\"subjects\">");
         gsub(/<\/td>/, "</p>");
 
         gsub(/Nuclear Theory \(nucl-th\)/, "<span class=\"subject-nucl-th\">nucl-th</span>");
