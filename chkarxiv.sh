@@ -54,70 +54,70 @@ function cmd:update-arxiv/core {
   local fhtm_sum=$dhtmlc/${arxiv%%.*}/${arxiv#*.}.sum.htm
   if [[ ! -s $fhtm_ind || ! -s $fhtm_sum ]]; then
     awk '
-      BEGIN{
-        arXivId="'$arxiv'";
-        title_head1="<a href=\"http://arxiv.org/pdf/" arXivId ".pdf\"><img src=\"/agh/icons/file-pdf.png\" alt=\"pdf\" /></a>";
-        title_head2="<a href=\"http://arxiv.org/abs/" arXivId "\">arXiv:" arXivId "</a>";
-        title_head=title_head1 " " title_head2 ": ";
+      BEGIN {
+        arXivId = "'$arxiv'";
+        title_head1 = "<a href=\"http://arxiv.org/pdf/" arXivId ".pdf\"><img src=\"/agh/icons/file-pdf.png\" alt=\"pdf\" /></a>";
+        title_head2 = "<a href=\"http://arxiv.org/abs/" arXivId "\">arXiv:" arXivId "</a>";
+        title_head = title_head1 " " title_head2 ": ";
       }
 
-      function print_content(){
-        gsub(/href="\//,"href=\"http://arxiv.org/");
+      function print_content() {
+        gsub(/href="\//, "href=\"http://arxiv.org/");
 
         # title
-        gsub(/^<h1 class="title( mathjax)?"><span class="descriptor">Title:<\/span>/,"<h2 class=\"title\" id=\"arxiv." arXivId "\">" title_head);
-        gsub(/<\/h1>/,"</h2>");
+        gsub(/^<h1 class="title( mathjax)?"><span class="descriptor">Title:<\/span>/, "<h2 class=\"title\" id=\"arxiv." arXivId "\">" title_head);
+        gsub(/<\/h1>/, "</h2>");
 
         # author list
-        gsub(/id="long-author-list"/,"class=\"long-author-list\"");
+        gsub(/id="long-author-list"/, "class=\"long-author-list\"");
 
         # abstract
-        gsub(/\yblockquote\y/,"p");
+        gsub(/\yblockquote\y/, "p");
         print;
       }
 
-      /href="javascript:toggleAuthorList/{next;}
-      /^<h1 class="title( mathjax)?">/{
-        swch=1;
+      /href="javascript:toggleAuthorList/ { next; }
+      /^<h1 class="title( mathjax)?">/ {
+        swch = 1;
 
         # read title1
-        swch_title=1;
-        _text=$0;
-        sub(/^.*Title:<\/span>/,"",_text);
-        title=_text;
+        swch_title = 1;
+        _text = $0;
+        sub(/^.*Title:<\/span>/, "", _text);
+        title = _text;
 
         print_content();
         next;
       }
-      /^<\/blockquote>/{
-        swch=0;print_content();next;
+      /^<\/blockquote>/ {
+        swch=0; print_content(); next;
       }
-      swch==1{
+      swch == 1 {
         # read title
-        if(swch_title){
-          _text=$0;
-          if(_text~/<\/h1>/){
-            sub(/<\/h1>.*$/,"",_text);
-            swch_title=0;
+        if (swch_title) {
+          _text = $0;
+          if (_text~/<\/h1>/) {
+            sub(/<\/h1>.*$/, "", _text);
+            swch_title = 0;
           }
-          title=title _text;
+          title = title _text;
         }
 
-        print_content();next;
+        print_content(); next;
       }
 
-      /^<td class="tablecell subjects">/{
-        gsub(/^<td class="tablecell subjects">/,"<p class=\"subjects\">");
-        gsub(/<\/td>/,"</p>");
+      /^<td class="tablecell subjects">/ {
+        gsub(/^<td class="tablecell subjects">/, "<p class=\"subjects\">");
+        gsub(/<\/td>/, "</p>");
 
-        gsub(/Nuclear Theory \(nucl-th\)/,"<span class=\"subject-nucl-th\">nucl-th</span>");
-        gsub(/Nuclear Experiment \(nucl-ex\)/,"<span class=\"subject-nucl-ex\">nucl-ex</span>");
-        gsub(/High Energy Physics - Experiment \(hep-ex\)/,"<span class=\"subject-hep-ex\">hep-ex</span>");
-        gsub(/High Energy Physics - Phenomenology \(hep-ph\)/,"<span class=\"subject-hep-ph\">hep-ph</span>");
+        gsub(/Nuclear Theory \(nucl-th\)/, "<span class=\"subject-nucl-th\">nucl-th</span>");
+        gsub(/Nuclear Experiment \(nucl-ex\)/, "<span class=\"subject-nucl-ex\">nucl-ex</span>");
+        gsub(/High Energy Physics - Experiment \(hep-ex\)/, "<span class=\"subject-hep-ex\">hep-ex</span>");
+        gsub(/High Energy Physics - Phenomenology \(hep-ph\)/, "<span class=\"subject-hep-ph\">hep-ph</span>");
         print;
       }
 
-      END{
+      END {
         print "<li>" title_head "<a class=\"internal article-index-title\" href=\"#arxiv." arXivId "\">" title "</a></li>" > "'"$fhtm_ind"'"
       }
     ' "$fhtm" > "$fhtm_sum"
