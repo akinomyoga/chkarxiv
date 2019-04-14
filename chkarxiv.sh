@@ -57,7 +57,7 @@ function cmd:update-arxiv/.download-abs-page {
   local arxiv=$1
   local fhtm=$dcache/${arxiv%%.*}/$arxiv.htm
   mkd "${fhtm%/*}"
-  [[ ! -s $fhtm ]] && return 0
+  [[ -s $fhtm ]] && return 0
   wget --no-verbose --user-agent="$HTTP_UA" --referer="http://arxiv.org/list/nucl-th/recent" "http://arxiv.org/abs/$arxiv" -O "$fhtm"; local ret=$?
   sleep 5
   return "$?"
@@ -426,10 +426,10 @@ function generate_html_ArticleListSlide {
 # fdate_update1 20130919
 # fdate_update1 20130920
 
-#fdate_update1 20131016
-#fdate_update1 20131017
-#fdate_update1 20131018
-#fdate_update1 20131021
+# fdate_update1 20131016
+# fdate_update1 20131017
+# fdate_update1 20131018
+# fdate_update1 20131021
 
 # source backup/chkarxiv.20130923.src
 # source backup/chkarxiv.20131016.src
@@ -444,9 +444,9 @@ function cmd:list {
 }
 
 # その月を全て生成する場合
-#cat .chkarxiv/stamp/201706??.txt > .chkarxiv/201706.txt
-#create_list_html -o fjc201706.htm 201706 .chkarxiv/201706.txt
-#create_list_html -o fjc201705.htm 201705 .chkarxiv/201705.txt
+# cat .chkarxiv/stamp/201706??.txt > .chkarxiv/201706.txt
+# create_list_html -o fjc201706.htm 201706 .chkarxiv/201706.txt
+# create_list_html -o fjc201705.htm 201705 .chkarxiv/201705.txt
 
 # 2019-01-17
 #   arXiv の形式が変わっていて 201810 から正常に HTML を生成できていなかったので、
@@ -459,6 +459,10 @@ function cmd:20190117-regenerate {
     aid_list.generate_html "$file"
   done
 }
+
+#aid_list.generate_html 20190117
+
+#------------------------------------------------------------------------------
 
 if declare -f cmd:"$1" &>/dev/null; then
   cmd:"$@"
