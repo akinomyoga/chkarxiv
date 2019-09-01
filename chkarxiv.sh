@@ -58,7 +58,7 @@ function cmd:update-arxiv/.download-abs-page {
   local fhtm=$dcache/${arxiv%%.*}/$arxiv.htm
   mkd "${fhtm%/*}"
   [[ -s $fhtm ]] && return 0
-  wget --no-verbose --user-agent="$HTTP_UA" --referer="http://arxiv.org/list/nucl-th/recent" "http://arxiv.org/abs/$arxiv" -O "$fhtm"; local ret=$?
+  wget --no-verbose --user-agent="$HTTP_UA" --referer="https://arxiv.org/list/nucl-th/recent" "https://arxiv.org/abs/$arxiv" -O "$fhtm"; local ret=$?
   sleep 5
   return "$?"
 }
@@ -79,13 +79,13 @@ function cmd:update-arxiv/.extract-title-and-abstract {
   awk '
     BEGIN {
       arXivId = "'$arxiv'";
-      title_head1 = "<a href=\"http://arxiv.org/pdf/" arXivId ".pdf\"><img src=\"/agh/icons/file-pdf.png\" alt=\"pdf\" /></a>";
-      title_head2 = "<a href=\"http://arxiv.org/abs/" arXivId "\">arXiv:" arXivId "</a>";
+      title_head1 = "<a href=\"https://arxiv.org/pdf/" arXivId ".pdf\"><img src=\"/agh/icons/file-pdf.png\" alt=\"pdf\" /></a>";
+      title_head2 = "<a href=\"https://arxiv.org/abs/" arXivId "\">arXiv:" arXivId "</a>";
       title_head = title_head1 " " title_head2 ": ";
     }
 
     function print_content() {
-      gsub(/href="\//, "href=\"http://arxiv.org/");
+      gsub(/href="\//, "href=\"https://arxiv.org/");
 
       # title
       gsub(/^[[:space:]]*<h1 class="title( mathjax)?"><span class="descriptor">Title:<\/span>/, "<h2 class=\"title\" id=\"arxiv." arXivId "\">" title_head);
@@ -197,7 +197,7 @@ function create_list_html {
 
   local date=$1
   local flst=$2 
-  http_referer=http://arxiv.org/list/$cat/recent
+  http_referer=https://arxiv.org/list/$cat/recent
 
   local -a sum_list
   local -a ind_list
@@ -206,7 +206,7 @@ function create_list_html {
   while read arxiv; do
     if [[ ! $arxiv ]]; then
       continue
-    elif [[ $arxiv =~ ^http://arxiv.org/abs/([0-9.]+) ]]; then
+    elif [[ $arxiv =~ ^https?://arxiv.org/abs/([0-9.]+) ]]; then
       arxiv="${BASH_REMATCH[1]}"
     fi
 
@@ -320,11 +320,11 @@ function arxiv_check_recent {
   local categories='nucl-th nucl-ex hep-ph hep-ex'
   for cat in $categories; do
     local http_ua=$HTTP_UA
-    local http_referer=http://arxiv.org/list/$cat/recent
+    local http_referer=https://arxiv.org/list/$cat/recent
     local wget_output=.chkarxiv/$cat.tmp
     #if test ! -s "$wget_output"; then
     if true; then
-      wget --no-verbose --user-agent="$http_ua" --referer="$http_referer" "http://arxiv.org/list/$cat/pastweek?show=1000" -O "$wget_output"
+      wget --no-verbose --user-agent="$http_ua" --referer="$http_referer" "https://arxiv.org/list/$cat/pastweek?show=1000" -O "$wget_output"
       sleep 5
     fi
     egrep '^<h3>|class="list-identifier"' "$wget_output" | awk '
