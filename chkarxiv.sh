@@ -21,18 +21,20 @@ mkd "$dhtmlc"
 ##   @var[in] dcache
 ##   @var[in] HTTP_UA
 function cmd:update-arxiv {
-  local arxiv
+  local arxiv opts=
   for arxiv; do
-    if [[ $arxiv == ?*. ]]; then
+    if [[ $arxiv == +o* ]]; then
+      opts=$opts:${arxiv:2}
+    elif [[ $arxiv == ?*. ]]; then
       arxiv=${arxiv%.}
       local -a list=($dcache/${arxiv%.}/?*.?*.htm)
       list=(${list[@]##*/})
       list=(${list[@]%.htm})
       cmd:update-arxiv "${list[@]}"
     else
-      cmd:update-arxiv/.check-arxiv-number "$arxiv" &&
-        cmd:update-arxiv/.download-abs-page "$arxiv" &&
-        cmd:update-arxiv/.extract-title-and-abstract "$arxiv"
+      cmd:update-arxiv/.check-arxiv-number "$arxiv" "$opts" &&
+        cmd:update-arxiv/.download-abs-page "$arxiv" "$opts" &&
+        cmd:update-arxiv/.extract-title-and-abstract "$arxiv" "$opts"
     fi
   done
 }
@@ -63,18 +65,20 @@ function cmd:update-arxiv/.download-abs-page {
   return "$?"
 }
 
-## 関数 cmd:update-arxiv/.extract-title-and-abstract arxiv
-##   @param[in] arxiv
-##     1810.00001 の形式の番号を指定します。
+## 関数 cmd:update-arxiv/.extract-title-and-abstract arxiv [opts]
 ##   .chkarxiv/cache/1810/1810.13394.htm からタイトルと概要を抽出して
 ##   .chkarxiv/html/1810/1810.13394.{ind,sum}.htm に保存します。
+##   @param[in] arxiv
+##     1810.00001 の形式の番号を指定します。
+##   @param[in] opts
+##     regen キャッシュの有無に関わらず再生成する事を示します。
 function cmd:update-arxiv/.extract-title-and-abstract {
-  local arxiv=$1
+  local arxiv=$1 opts=:$2:
   mkd "$dhtmlc/${arxiv%%.*}"
   local fhtm=$dcache/${arxiv%%.*}/$arxiv.htm
   local fhtm_ind=$dhtmlc/${arxiv%%.*}/${arxiv#*.}.ind.htm
   local fhtm_sum=$dhtmlc/${arxiv%%.*}/${arxiv#*.}.sum.htm
-  [[ -s $fhtm_ind && -s $fhtm_sum ]] && return 0
+  [[ $opts != *:regen:* && -s $fhtm_ind && -s $fhtm_sum ]] && return 0
 
   awk '
     BEGIN {
@@ -132,13 +136,21 @@ function cmd:update-arxiv/.extract-title-and-abstract {
 
     /^[[:space:]]*<td class="tablecell subjects">/ {
       gsub(/^[[:space:]]*<td class="tablecell subjects">/, "<p class=\"subjects\">");
-      gsub(/<\/td>/, "</p>");
-
+      mode = "subjects";
+      # FALL-THROUGH
+    }
+    mode == "subjects" {
+      gsub(/^[[:space:]]+/, "");
       gsub(/Nuclear Theory \(nucl-th\)/, "<span class=\"subject-nucl-th\">nucl-th</span>");
       gsub(/Nuclear Experiment \(nucl-ex\)/, "<span class=\"subject-nucl-ex\">nucl-ex</span>");
       gsub(/High Energy Physics - Experiment \(hep-ex\)/, "<span class=\"subject-hep-ex\">hep-ex</span>");
       gsub(/High Energy Physics - Phenomenology \(hep-ph\)/, "<span class=\"subject-hep-ph\">hep-ph</span>");
-      print;
+      if (gsub(/<\/td>/, "</p>") == 0) {
+        printf("%s", $0);
+      } else {
+        mode = "";
+        print;
+      }
     }
 
     END {
@@ -182,13 +194,14 @@ function cmd:get-content-html/core {
 #-------------------------------------------------------------------------------
 
 function create_list_html {
-  local outputFile=
-  while [[ $1 == -* ]]; do
+  local outputFile= opts=:
+  while [[ $1 == [-+]* ]]; do
     local arg=$1
     shift
     case $arg in
     (-o)  outputFile=$1; shift ;;
     (-o*) outputFile=${arg:2}  ;;
+    (+o*)  opts=$opts${arg:2}: ;;
     (*)
       echo "create_list_html: unexpected option '$arg'!" >&2
       return 1 ;;
@@ -210,7 +223,7 @@ function create_list_html {
       arxiv="${BASH_REMATCH[1]}"
     fi
 
-    cmd:update-arxiv "$arxiv"
+    cmd:update-arxiv +o"$opts" "$arxiv"
 
     local fhtm_ind=$dhtmlc/${arxiv%%.*}/${arxiv#*.}.ind.htm
     local fhtm_sum=$dhtmlc/${arxiv%%.*}/${arxiv#*.}.sum.htm
@@ -268,14 +281,14 @@ function aid_list.canonicalize {
     rm -f "$fdate.part"
   fi
 }
-## 関数 aid_list.generate_html [date]
+## 関数 aid_list.generate_html [date [opts]]
 ##   @param[in,opt] date
 ##     HTMLを生成する対象の日付を指定します。
 ##     もしくは記事番号一覧ファイルを指定します。
 ##     省略した場合は aid_list_dates を使用します。
 function aid_list.generate_html {
   if (($#)); then
-    local date=$1
+    local date=$1 opts=:$2:
     local fdate=$dstamp/$date.txt
     if [[ ! -f $fdate && -s $date ]]; then
       # ファイル名を直接指定した時
@@ -284,7 +297,7 @@ function aid_list.generate_html {
       date=${date%%.*}
     fi
     aid_list.canonicalize "$date"
-    create_list_html "$date" "$fdate"
+    create_list_html +o"$opts" "$date" "$fdate"
   else
     local date
     for date in "${aid_list_dates[@]}"; do
@@ -461,6 +474,13 @@ function cmd:20190117-regenerate {
 }
 
 #aid_list.generate_html 20190117
+
+function cmd:regenerate {
+  local date=$1
+  if local rex='^20[0-9]{6}$'; [[ $date =~ $rex ]]; then
+    aid_list.generate_html "$date" regen
+  fi
+}
 
 #------------------------------------------------------------------------------
 
