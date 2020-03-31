@@ -475,10 +475,21 @@ function cmd:20190117-regenerate {
 
 #aid_list.generate_html 20190117
 
+## 関数 cmd:regenerate date
+##   指定した日付の HTML を再生成します。
+##   @param[in] date
+##     8桁の日付を指定します。? が含まれる場合には
+##     一致する日付全てについて処理を行います。
 function cmd:regenerate {
   local date=$1
   if local rex='^20[0-9]{6}$'; [[ $date =~ $rex ]]; then
     aid_list.generate_html "$date" regen
+  elif ((${#date}==8)) && [[ ! ${date//[0-9?]} ]]; then
+    local file
+    for file in .chkarxiv/stamp/$date.txt; do
+      echo aid_list.generate_html "$file"
+      aid_list.generate_html "$file" regen
+    done
   fi
 }
 
