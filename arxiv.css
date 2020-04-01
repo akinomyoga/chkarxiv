@@ -12,6 +12,11 @@ span.arxiv-check--checked {
   color: white;
   background-color: #8c0;
 }
+span.arxiv-check--important {
+  color: white;
+  background-color: #c00;
+  border-color: gray;
+}
 pre.arxiv-markdown {
   padding: 0.5em;
   border: 1px solid silver;

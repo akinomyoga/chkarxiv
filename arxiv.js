@@ -7,13 +7,20 @@
       btn.id = h1.id.replace(/^arxiv/, 'btn');
       btn.arxivTitleElement = h1;
 
-      var checked = false;
+      var checked = 0;
       btn.addEventListener('click', () => {
-        checked = !checked;
-        if (checked)
+        checked = (checked + 1) % 3;
+        switch (checked) {
+        case 0:
+          btn.classList.remove('arxiv-check--checked', 'arxiv-check--important');
+          break;
+        case 1:
           btn.classList.add('arxiv-check--checked');
-        else
-          btn.classList.remove('arxiv-check--checked');
+          break;
+        case 2:
+          btn.classList.add('arxiv-check--important');
+          break;
+        }
         updateMarkdown();
       });
 
@@ -33,7 +40,7 @@
 
       // 日付
       var m = document.title.match(/\b(20[0-9]{2})([0-9]{2})([0-9]{2})\b/);
-      if (m) buff.push(m[1], '-', m[2], '-', m[3], '\n');
+      if (m) buff.push('### ', m[1], '-', m[2], '-', m[3], '\n');
 
       const buttons = document.querySelectorAll('span.arxiv-check');
       for (var i = 0; i < buttons.length; i++) {
@@ -44,6 +51,9 @@
         var title = btn.arxivTitleElement.innerText;
         const index = title.indexOf(": ");
         if (index >= 0) title = title.slice(index + 1).trim();
+        title = title.replace(/[ \t\n]+/g, " ");
+        if (btn.classList.contains('arxiv-check--important'))
+          title = '★ ' + title;
 
         var url = 'https://arxiv.org/abs/' + arxivId;
 
