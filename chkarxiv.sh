@@ -15,6 +15,10 @@ mkd "$dstamp"
 mkd "$dcache"
 mkd "$dhtmlc"
 
+function util/wget {
+  wget --no-check-certificate --no-verbose --user-agent="$HTTP_UA" "$@"
+}
+
 #-------------------------------------------------------------------------------
 
 ## 関数 cmd:update-arxiv arxivNumber...
@@ -60,7 +64,7 @@ function cmd:update-arxiv/.download-abs-page {
   local fhtm=$dcache/${arxiv%%.*}/$arxiv.htm
   mkd "${fhtm%/*}"
   [[ -s $fhtm ]] && return 0
-  wget --no-verbose --user-agent="$HTTP_UA" --referer="https://arxiv.org/list/nucl-th/recent" "https://arxiv.org/abs/$arxiv" -O "$fhtm"; local ret=$?
+  util/wget --referer="https://arxiv.org/list/nucl-th/recent" "https://arxiv.org/abs/$arxiv" -O "$fhtm"; local ret=$?
   sleep 5
   return "$?"
 }
@@ -118,20 +122,28 @@ function cmd:update-arxiv/.extract-title-and-abstract {
       title = title line;
     }
 
-    /href="javascript:toggleAuthorList/ { next; }
+
     /^[[:space:]]*<h1 class="title( mathjax)?">/ {
-      swch = 1;
+      mode = "content";
 
       title_initialize($0);
       print_content();
       next;
     }
-    /^[[:space:]]*<\/blockquote>/ {
-      swch=0; print_content(); next;
-    }
-    swch == 1 {
+    mode == "content" {
+      if (/\yhref="javascript:toggleAuthorList/) next;
+      if (/\yclass="mobile-submission-download"/) next;
+      if (/^[[:space:]]*$/) next;
+
+      if (/^[[:space:]]*<\/blockquote>/) {
+        mode = "";
+        print_content();
+        next;
+      }
+
       title_check_and_append($0);
-      print_content(); next;
+      print_content();
+      next;
     }
 
     /^[[:space:]]*<td class="tablecell subjects">/ {
@@ -332,12 +344,11 @@ function arxiv_list.regenerateListFromStamp {
 function arxiv_check_recent {
   local categories='nucl-th nucl-ex hep-ph hep-ex'
   for cat in $categories; do
-    local http_ua=$HTTP_UA
     local http_referer=https://arxiv.org/list/$cat/recent
     local wget_output=.chkarxiv/$cat.tmp
     #if test ! -s "$wget_output"; then
     if true; then
-      wget --no-verbose --user-agent="$http_ua" --referer="$http_referer" "https://arxiv.org/list/$cat/pastweek?show=1000" -O "$wget_output"
+      util/wget --referer="$http_referer" "https://arxiv.org/list/$cat/pastweek?show=1000" -O "$wget_output"
       sleep 5
     fi
     egrep '^<h3>|class="list-identifier"' "$wget_output" | awk '

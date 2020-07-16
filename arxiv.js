@@ -53,7 +53,7 @@
         if (index >= 0) title = title.slice(index + 1).trim();
         title = title.replace(/[ \t\n]+/g, " ");
         if (btn.classList.contains('arxiv-check--important'))
-          title = '★ ' + title;
+          title = '★' + title;
 
         var url = 'https://arxiv.org/abs/' + arxivId;
 
