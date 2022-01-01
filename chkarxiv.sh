@@ -353,7 +353,7 @@ function arxiv_check_recent {
     fi
     egrep '^<h3>|class="list-identifier"' "$wget_output" | awk '
       /^<h3>/{
-        gsub(/<h3>([[:alpha:]]+\, *)?|<\/h3>/,"");
+        gsub(/<h3>([[:alpha:]]+, *)?|<\/h3>/,"");
         gsub(/ /,"-");
         date=$0;
         next;
