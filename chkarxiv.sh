@@ -7,6 +7,8 @@ dstamp=.chkarxiv/stamp
 dcache=.chkarxiv/cache
 dhtmlc=.chkarxiv/html
 
+fname_log=chkarxiv.log
+
 function mkd {
   [[ -d $1 ]] || mkdir -p "$1"
 }
@@ -65,6 +67,10 @@ function cmd:update-arxiv/.download-abs-page {
   mkd "${fhtm%/*}"
   [[ -s $fhtm ]] && return 0
   util/wget --referer="https://arxiv.org/list/nucl-th/recent" "https://arxiv.org/abs/$arxiv" -O "$fhtm"; local ret=$?
+  if ((ext)); then
+    echo "(arxiv=$arxiv): failed to download the abstract page." >&2
+    echo "(arxiv=$arxiv): failed to download the abstract page." >> "$fname_log"
+  fi
   sleep 5
   return "$?"
 }
