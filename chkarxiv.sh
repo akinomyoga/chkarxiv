@@ -357,7 +357,7 @@ function arxiv_check_recent {
       util/wget --referer="$http_referer" "https://arxiv.org/list/$cat/pastweek?show=1000" -O "$wget_output"
       sleep 5
     fi
-    egrep '^<h3>|class="list-identifier"' "$wget_output" | awk '
+    grep -E '^<h3>|class="list-identifier"' "$wget_output" | awk '
       /^<h3>/{
         gsub(/<h3>([[:alpha:]]+, *)?|<\/h3>/,"");
         gsub(/ /,"-");
