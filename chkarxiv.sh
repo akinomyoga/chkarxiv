@@ -410,14 +410,6 @@ function arxiv_check_recent {
   )
 }
 
-function fdate_update1 {
-  create_list_html "$1" "$dstamp/$1.txt"
-}
-
-# aid_list.generate_html 20140120
-# aid_list.generate_html 20140121
-# aid_list.generate_html 20140122
-
 #------------------------------------------------------------------------------
 
 function generate_html_ArticleListSlide {
@@ -441,29 +433,25 @@ function generate_html_ArticleListSlide {
 #   3$ generate_html_ArticleListSlide arxivjc20130101.htm > a.htm
 #
 
-# aid_list.generate_html jc20131025
-# aid_list.generate_html jc20131213
-# generate_html_ArticleListSlide arxivjc20131213.htm > a.htm
-
-# aid_list.generate_html jc20140710
-# generate_html_ArticleListSlide arxivjc20140710.htm > a.htm
+## 関数 cmd:regenerate date
+##   指定した日付の HTML を再生成します。
+##   @param[in] date
+##     8桁の日付を指定します。? が含まれる場合には
+##     一致する日付全てについて処理を行います。
+function cmd:regenerate {
+  local date=$1
+  if local rex='^20[0-9]{6}$'; [[ $date =~ $rex ]]; then
+    aid_list.generate_html "$date" regen
+  elif ((${#date}==8)) && [[ ! ${date//[0-9?]} ]]; then
+    local file
+    for file in .chkarxiv/stamp/$date.txt; do
+      echo aid_list.generate_html "$file"
+      aid_list.generate_html "$file" regen
+    done
+  fi
+}
 
 #------------------------------------------------------------------------------
-
-# fdate_update1 20130916
-# fdate_update1 20130917
-# fdate_update1 20130918
-# fdate_update1 20130919
-# fdate_update1 20130920
-
-# fdate_update1 20131016
-# fdate_update1 20131017
-# fdate_update1 20131018
-# fdate_update1 20131021
-
-# source backup/chkarxiv.20130923.src
-# source backup/chkarxiv.20131016.src
-# source backup/chkarxiv.20130930.src
 
 function cmd:recent {
   arxiv_check_recent
@@ -472,6 +460,33 @@ function cmd:recent {
 function cmd:list {
   create_list_html -o "$2" "${1%.lst}" "$1"
 }
+
+
+# aid_list.generate_html 20140120
+# aid_list.generate_html 20140121
+# aid_list.generate_html 20140122
+
+# aid_list.generate_html jc20131025
+# aid_list.generate_html jc20131213
+# generate_html_ArticleListSlide arxivjc20131213.htm > a.htm
+
+# aid_list.generate_html jc20140710
+# generate_html_ArticleListSlide arxivjc20140710.htm > a.htm
+
+# aid_list.generate_html 20130916
+# aid_list.generate_html 20130917
+# aid_list.generate_html 20130918
+# aid_list.generate_html 20130919
+# aid_list.generate_html 20130920
+
+# aid_list.generate_html 20131016
+# aid_list.generate_html 20131017
+# aid_list.generate_html 20131018
+# aid_list.generate_html 20131021
+
+# source backup/chkarxiv.20130923.src
+# source backup/chkarxiv.20131016.src
+# source backup/chkarxiv.20130930.src
 
 # その月を全て生成する場合
 # cat .chkarxiv/stamp/201706??.txt > .chkarxiv/201706.txt
@@ -491,24 +506,7 @@ function cmd:20190117-regenerate {
 }
 
 #aid_list.generate_html 20190117
-
-## 関数 cmd:regenerate date
-##   指定した日付の HTML を再生成します。
-##   @param[in] date
-##     8桁の日付を指定します。? が含まれる場合には
-##     一致する日付全てについて処理を行います。
-function cmd:regenerate {
-  local date=$1
-  if local rex='^20[0-9]{6}$'; [[ $date =~ $rex ]]; then
-    aid_list.generate_html "$date" regen
-  elif ((${#date}==8)) && [[ ! ${date//[0-9?]} ]]; then
-    local file
-    for file in .chkarxiv/stamp/$date.txt; do
-      echo aid_list.generate_html "$file"
-      aid_list.generate_html "$file" regen
-    done
-  fi
-}
+#aid_list.generate_html 20240301
 
 #------------------------------------------------------------------------------
 
